@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*\.so
+
+# Virtual environment
+venv/
+.env
+
+# Poetry lock
+poetry.lock
+
+# IDE files
+.idea/
+.vscode/
+
+# Docker files
+*.log
+.DS_Store
