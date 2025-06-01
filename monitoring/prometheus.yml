@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 1) FastAPI metrics (exposed at /metrics on port 8000)
+  - job_name: "fastapi"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+
+  # 2) Celery worker metrics (if exposed on port 5555)
+  - job_name: "celery"
+    static_configs:
+      - targets: ["host.docker.internal:5555"]
+
+  # 3) Redis exporter (if you run redis_exporter on 9121)
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis:9121"]
+
+  # 4) Postgres exporter (if you run postgres_exporter on 9187)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["host.docker.internal:9187"]
+
+  # 5) Kafka exporter (if you run kafka_exporter on 9308)
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["host.docker.internal:9308"]
