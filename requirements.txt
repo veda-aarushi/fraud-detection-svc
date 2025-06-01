@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+celery
+redis
+kafka-python
+
+pytest
+ruff
+mypy
+pre-commit
