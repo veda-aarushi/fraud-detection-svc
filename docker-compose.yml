@@ -1,17 +1,14 @@
 version: "3.8"
 
 services:
-  # 1) Zookeeper (Bitnami)
   zookeeper:
     image: bitnami/zookeeper:3.8
     container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
-      # These are Bitnami defaults; no auth
       ALLOW_ANONYMOUS_LOGIN: "yes"
 
-  # 2) Kafka (Bitnami)
   kafka:
     image: bitnami/kafka:3
     container_name: kafka
@@ -25,14 +22,12 @@ services:
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       ALLOW_PLAINTEXT_LISTENER: "yes"
 
-  # 3) Redis (for caching / Celery broker)
   redis:
     image: redis:6-alpine
     container_name: redis
     ports:
       - "6379:6379"
 
-  # 4) Postgres (feature store)
   postgres:
     image: postgres:15
     container_name: postgres
@@ -40,12 +35,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fraud_db
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # 5) Prometheus (metrics)
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: prometheus

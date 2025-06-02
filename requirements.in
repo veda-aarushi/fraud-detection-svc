@@ -1,3 +1,4 @@
+# Core libraries
 fastapi
 uvicorn[standard]
 pydantic
@@ -5,13 +6,8 @@ celery
 redis
 kafka-python
 
+# Dev tools (tests, lint, type‐check, pre‐commit)
 pytest
 ruff
 mypy
 pre-commit
-fastapi[all]
-sqlalchemy[asyncio]
-asyncpg
-aioredis
-pyjwt
-prometheus-fastapi-instrumentator

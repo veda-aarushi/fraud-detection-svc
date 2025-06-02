@@ -2,9 +2,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import Column, Integer, String, Float, DateTime, func
 
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/fraud_db"
+# Use 127.0.0.1 to avoid any IPv6/localhost mismatch
+DATABASE_URL = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/fraud_db"
 
-# Async engine and session factory
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
