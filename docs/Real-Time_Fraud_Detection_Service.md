@@ -15,7 +15,7 @@ Key ideas:
 
 ---
 
-## 🚀 Features
+## Features
 
 ### 1. Asynchronous Model Retraining  
 `POST /train` *(admin only)*  
