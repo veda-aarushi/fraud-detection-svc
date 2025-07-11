@@ -1,90 +1,77 @@
-# app/main.py
-from __future__ import annotations
-
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from prometheus_fastapi_instrumentator import Instrumentator
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import text
 import aioredis
-import asyncpg
 
-from .auth import get_current_user, create_access_token
-from .db.models import AsyncSessionLocal
+from .db.models     import init_db, AsyncSessionLocal
 from .db.repository import create_transaction, get_transaction
-
-app = FastAPI(
-    title="Fraud Detection Service",
-    docs_url="/docs",
-    openapi_url="/openapi.json"
+from .auth          import (
+    get_db,
+    create_user,
+    get_user_by_username,
+    create_access_token,
+    get_current_user,
+    verify_password
 )
 
-# Prometheus instrumentation
-Instrumentator().instrument(app).expose(app, include_in_schema=False, should_gzip=True)
-
-redis: aioredis.Redis | None = None
+app = FastAPI(title="Fraud Detection Service")
 
 @app.on_event("startup")
 async def on_startup():
-    # Create Redis client
-    global redis
-    redis = await aioredis.from_url(
+    await init_db()
+    app.state.redis = await aioredis.from_url(
         "redis://localhost:6379", encoding="utf8", decode_responses=True
     )
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    global redis
-    if redis:
-        await redis.close()
+    await app.state.redis.close()
 
 @app.get("/health")
-async def health_check():
-    # 1) Check Postgres via asyncpg.connect on port 5433
+async def health_check(db=Depends(get_db)):
+    # Postgres
     try:
-        conn = await asyncpg.connect(
-            user="postgres",
-            password="postgres",
-            database="fraud_db",
-            host="127.0.0.1",
-            port=5433,
-        )
-        await conn.execute("SELECT 1;")
-        await conn.close()
+        async with db as session:
+            await session.execute(text("SELECT 1"))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database unreachable ({e})"
-        )
-
-    # 2) Check Redis
+        raise HTTPException(500, f"Database unreachable ({e})")
+    # Redis
     try:
-        if not redis:
-            raise RuntimeError("Redis client not initialized")
-        await redis.ping()
+        await app.state.redis.ping()
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Redis unreachable ({e})"
-        )
-
+        raise HTTPException(500, f"Redis unreachable ({e})")
     return JSONResponse({"status": "ok"})
 
+@app.post("/auth/register", status_code=201)
+async def register(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
+    if await get_user_by_username(db, form.username):
+        raise HTTPException(400, "Username already taken")
+    user = await create_user(db, form.username, form.password)
+    return {"id": user.id, "username": user.username}
+
 @app.post("/token")
-async def token_endpoint():
-    # Demo‐only: always returns a “demo_user” token
-    access_token = create_access_token({"sub": "demo_user"})
-    return {"access_token": access_token, "token_type": "bearer"}
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
+    user = await get_user_by_username(db, form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(401, "Incorrect credentials")
+    token = create_access_token({"sub": user.username})
+    return {"access_token": token, "token_type": "bearer"}
+
+@app.get("/auth/me")
+async def read_me(user=Depends(get_current_user)):
+    return {"id": user.id, "username": user.username}
 
 @app.post("/transactions")
-async def add_transaction(trx: dict, user: dict = Depends(get_current_user)):
-    # Use SQLAlchemy to save the incoming JSON into Postgres
+async def add_transaction(trx: dict, user=Depends(get_current_user)):
     async with AsyncSessionLocal() as session:
-        new = await create_transaction(session, trx)
-        return new
+        created = await create_transaction(session, trx)
+        return created
 
 @app.get("/transactions/{transaction_id}")
-async def read_transaction(transaction_id: str, user: dict = Depends(get_current_user)):
+async def read_transaction(transaction_id: str, user=Depends(get_current_user)):
     async with AsyncSessionLocal() as session:
         trx = await get_transaction(session, transaction_id)
         if not trx:
-            raise HTTPException(status_code=404, detail="Transaction not found")
+            raise HTTPException(404, "Transaction not found")
         return trx
